@@ -6,7 +6,7 @@
     <meta name="description" content="">
     <meta name="author" content="Mark Otto, Jacob Thornton, and Bootstrap contributors">
     <meta name="generator" content="Hugo 0.83.1">
-    <title>NodeJs & Socket.IO - Creating a Login system</title>
+    <title>Salas de chat</title>
 
     <link rel="canonical" href="https://getbootstrap.com/docs/5.0/examples/sign-in/">
 
@@ -128,6 +128,7 @@ a {
           font-size: 3.5rem;
         }
       }
+      
     </style>
 
     
@@ -147,6 +148,10 @@ a {
       <input type="password" class="form-control" id="Password" placeholder="Password" name="password">
       <label for="floatingPassword">Contraseña</label>
     </div>
+    <div class="form-floating">
+      <select type="text" name="idsala" id="salas" class="form-control" placeholder="idsala"></select>
+      <label for="floatingsala">Sala</label> 
+    </div>
 
     <button class="w-100 btn btn-lg btn-primary" type="button" id="Login">Entrar</button>
     <button class="w-100 btn btn-lg btn-warning" type="button" id="registrar" data-toggle="modal" data-target="#registro">Registrar</button>
@@ -155,7 +160,8 @@ a {
     <!--VISTA DEL CHAT-->
 		<div id="wrapper" style="display: none;">
 			<div id="menu">
-				<p class="bienvenido"> Bienvenido, <b id="usernameTag"></b>, con correo: <b id="emailUser"></b></p>
+        <h3><b id="nombresala"></b></h3>
+				<p class="bienvenido"> Hola <b id="usernameTag"></b>, con correo: <b id="emailUser"></b> </p>
 				<p class="logout"><a id="exit" href="/">Salir del chat</a></p>
 			</div>
 			
@@ -165,9 +171,10 @@ a {
 			
 				<input name="usermsg" type="text" id="mensaje" size="63"/>
 				<input type="button" name="submitmsg" id="enviarMensaje" value="Enviar Mensaje"/>
-
-			
-		</div>
+        <select class="form-control" name="cambioSala" id="cambioSala">
+          <!--<option selected>Cambiar sala</option> --> 
+        </select>
+		  </div>
 	
 
 <!-- FORMULARIO PARA REGISTRAR UN USUARIO -->
@@ -214,11 +221,32 @@ a {
 		  
 		  var socket = io(); //CREAMOS LA CONEXION CON SOCKET.IO
 		  
+      socket.on("showRooms",function(salas){
+        var getSalas= new Array();
+        $.each(salas, function(id,val){
+          var info={id: salas[id].id_sala, nombre_sala: salas[id].nombre_sala}
+          getSalas.push(info);
+        });
+        
+        let infoSalas= '';
+        getSalas.forEach(sala=>{
+          infoSalas+= `<option value=${sala.id}>${sala.nombre_sala}</option>`; 
+        });
+        document.getElementById("salas").innerHTML= infoSalas;
+        document.getElementById("cambioSala").innerHTML=infoSalas;
+        console.log(getSalas);
+      });
+
+      
+
+
           //CUANDO SE HAGA CLICK SOBRE EL BUTTON #LOGIN - ENTRAR- ENVIA USER Y PASSWORD A LA FUNCION "login" DE SOCKET
 		  $("#Login").click(function(){
 			  socket.emit("login", {
-				  user: $("#userName").val(),
-				  pass: $("#Password").val()
+				  username: $("#userName").val(),
+				  password: $("#Password").val(),
+          id_sala: $("#salas").val(),
+          nombre_sala: $("#salas").find('option:selected').text()
 			  });
 		  });
           //CUANDO SE HAGA CLICK SOBRE EL BUTTON #sendRegistro - REGISTRAR- ENVIA USER, PASSWORD Y EMAIL A LA FUNCION "addUser" DE SOCKET
@@ -232,6 +260,8 @@ a {
 		  //CUANDO SE HAGA CLICK EN EL ENLACE "salir del chat" SE DIRIGE A LA FUNCION DE "salir" QUE ESTA EN SOCKET PARA DESTRUIR LA SESION
 		  $(".logout").click(function(){
 			  socket.emit("salir");
+        alert('Hasta la proxima');
+        
 		  });
 		  
           //CUANDO SE HAGA CLICK EN EL BOTON REGISTRAR RESETEA LOS INPUTS DEL FORMULARIO.
@@ -257,8 +287,9 @@ a {
 				console.log(data);
 				$(".form-signin").hide();
 				$("#wrapper").show();
-				$('#usernameTag').text(data.user);
+				$('#usernameTag').text(data.username);
 				$('#emailUser').text(data.email);
+        $("#nombresala").text(data.nombre_sala);
 			});
             //FUNCION QUE NOTIFICA UN USUARIO INVALIDO
 			socket.on("invalido", function(){
@@ -284,6 +315,43 @@ a {
 					$('#chatbox').append(nuevoMensaje + '</br>');
 					$('#mensaje').val("");
 				});
+
+      socket.on('sinRegistrar',function(){
+        alert("Favor de registrarse");
+      });
+
+      socket.on('salaNull',function(){
+        alert("La sala NO existe");
+      });
+
+      socket.on('UserExistente',function(){
+        alert("El usuario/email ya existe");
+      });
+
+      socket.on('notificacion',function(data){
+        
+        if(data.usuario=="BotChat"){
+          var mensajeBot= `<p><b>${data.usuario}</b>: ${data.mensaje}</p>`;
+        }else{
+          var mensajeBot= `<p class="mensajeEnviado"><b>${data.usuario}</b> dice: ${data.mensaje}</p>`;
+        }//.bienvenido
+        $('#chatbox').append(mensajeBot+'</br>');
+        $('#mensaje').val("");
+      })
+
+      $('#cambioSala').change(()=>{
+       var idSala= $('#cambioSala').val(),
+       nombreSala= $('#cambioSala').find('option:selected').text();
+
+       $('#nombresala').text(nombreSala);
+       $('#chatbox').empty();
+
+       socket.emit('cambioDeSala',{
+         id_sala: idSala,
+         nombre_sala: nombreSala
+       });
+       console.log('Cambio select a ID: '+id_sala+' con nombre '+nombreSala);
+      })
 
 	  });
 </script>

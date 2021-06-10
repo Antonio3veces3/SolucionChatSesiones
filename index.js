@@ -7,7 +7,7 @@ session= require('express-session');
 
 //DECLARAMOS APP, VARIABLE DE LA APPLICACION QUE TRABAJARÁ LAS RUTAS Y EL PUERTO DE NUESTRO SERVIDOR.
 var app= express();
-
+const nameBot= 'BotChat';
 //DECLARAMOS LA VARIABLE server, QUE NOS NOTIFICARÁ CUANDO ARRANQUE NUESTRO SERVIDOR Y NOS DIRÁ EL PUERTO QUE ESTA UTILIZANDO.
 var server= app.listen(3030, ()=>{
     console.log("Servidor trabajando en el puerto 3030");
@@ -56,13 +56,18 @@ db.connect(function(err){
     console.log('MySQL conectado: ' + config.host + ", usuario: " + config.user + ", Base de datos: " + config.base); //imprime que la conexion ha sido exitoSa, nos da el nombre del host, el usuario y la base de datos.
 });
 
+
 //USA LA RUTA ESTATICA /
 app.use(express.static('./'));
 
 //CREAMOS LA CONEXION DE LA SESION, NOS AVISA CUANDO UN USUARIO ENTRA AL CHAT.
 io.on('connection', function (socket) {
     var req = socket.request; 
-  
+    db.query("SELECT * FROM salas", function(err,rows,fields){
+        const salas= rows; 
+        console.log(salas);
+        socket.emit('showRooms',salas);
+    });
     console.log(req.session);
         //IF PARA SABER QUIEN INGRESA AL CHAT
       if(req.session.userID != null){
@@ -73,31 +78,49 @@ io.on('connection', function (socket) {
       }else{
           console.log('No hay sesión iniciada'); //MUESTRA ESTE MENSAJE SI EL USUARIO NO HA INICIADO SESION
       }
+        
+
       //FUNCION SOCKET PARA EL LOGIN 
       socket.on("login", function(data){
-        const user = data.user,
-        pass = data.pass;
-        //CONSULTA PARA BUSCAR LOS DATOS DEL USUARIO QUE DESEA INGRESAR
-        db.query("SELECT * FROM users WHERE username=?", [user], function(err, rows, fields){
+        const username = data.username,
+        password = data.password,
+        sala= data.id_sala;
+        //CONSULTA PARA BUSCAR LOS DATOS DEL USUARIO QUE DESEA LOGEARSE
+        db.query("SELECT * FROM users WHERE username=?", [username], function(err, rows, fields){
             if(rows.length == 0){
-                console.log("El usuario no existe, favor de registrarse!"); //CUANDO NO EXISTE EL USER EN LA BD
+                console.log("El usuario no existe, favor de registrarse!");
+                socket.emit("sinRegistrar");
             }else{
                     console.log(rows);
                     
-                    const dataUser = rows[0].username,
+                    const id= rows[0].id,
+                    dataUser = rows[0].username,
                     dataPass = rows[0].password,
-                    dataCorreo = rows[0].email;
+                    dataEmail = rows[0].email;
   
                   if(dataPass == null || dataUser == null){
                         socket.emit("error");//Si los datos no existen, arroja un error
                   }
-                  if(user == dataUser && pass == dataPass){
+                  if(username == dataUser && password == dataPass){
                       console.log("Usuario correcto!");
-                      socket.emit("logged_in", {user: user, email: dataCorreo}); //ENVIA user y email A LA FUNCION "logged_in" PARA CREAR LA SESION Y ENTRAR AL CHAT 
-                      req.session.userID = rows[0].id;
-                      req.session.username = dataUser;
-                      req.session.correo = dataCorreo;
-                      req.session.save(); //GUARDA LA SESION
+                      db.query("SELECT * FROM salas WHERE id_sala=?", [sala], function(err,rows,fields){    
+                          if(rows.length==0){
+                              console.log("LA SALA NO EXISTE")
+                              socket.emit("salaNull");
+                          }else{
+                            const nombreSala= rows[0].nombre_sala; 
+                            socket.emit("logged_in", {username: dataUser, email: dataEmail, id_sala: sala, nombre_sala: nombreSala}); 
+                            req.session.userID = id;
+                            req.session.username = dataUser;
+                            req.session.correo = dataEmail;
+                            req.session.id_sala= sala;
+                            req.session.nombre_sala= nombreSala;    
+                            req.session.save(); //GUARDA LA SESION
+                            socket.join(req.session.nombre_sala);
+                            Notificacion('LoginEnSala');
+                            console.log(req.session);
+                          }
+                        })
                   }else{
                         socket.emit("invalido"); //CUANDO LOS DATOS SON INCORRECTOS
                   }
@@ -112,16 +135,19 @@ io.on('connection', function (socket) {
           
           if(user != "" && pass != "" && email != ""){
               console.log("Registrando el usuario: " + user);
-              //CONSULTA PARA INSERTAR EL USUARIO
-                db.query("INSERT INTO users(`username`, `password`, `email`) VALUES(?, ?, ?)", [user, pass, email], function(err, result){
-                if(!!err)
-                throw err;//NOS DICE SI HAY UN ERROR
-  
-                console.log(result);//IMPRIME RESULTADO DE LA CONSULTA
-  
-                console.log('Usuario ' + user + " se dio de alta correctamente!."); 
-                socket.emit('UsuarioOK');//NOS AVISA QUE EL USUARIO SE AGREGÓ
-              });
+              db.query("SELECT * FROM users WHERE username=? OR email=?",[user,email], function(err,rows,fields){
+                  if(rows.length>0){
+                      socket.emit("UserExistente");
+                  }else{
+                    db.query("INSERT INTO users(`username`, `password`, `email`) VALUES(?, ?, ?)", [user, pass, email], function(err, result){
+                        if(!!err)
+                        throw err;//NOS DICE SI HAY UN ERROR
+                        console.log(result);//IMPRIME RESULTADO DE LA CONSULTA
+                        console.log('Usuario ' + user + " se dio de alta correctamente!."); 
+                        socket.emit('UsuarioOK');//NOS AVISA QUE EL USUARIO SE AGREGÓ
+                      });
+                  }
+              })
           }else{
               socket.emit('vacio'); //NOS DICE QUE UNO DE LOS CAMPOS ESTA VACIO
           }
@@ -129,9 +155,10 @@ io.on('connection', function (socket) {
       
       socket.on('mjsNuevo', function(data){ // FUNCION PARA CREAR CADA MENSAJE NUEVO
           
-          const sala = 0; // ID DE LA SALA
+          var sala= req.session.id_sala; // ID DE LA SALA
+          var user= req.session.userID;
           //CONSULTA PARA INSERTAR EL MENSAJE NUEVO A LA BD MENSAJES
-              db.query("INSERT INTO mensajes(`mensaje`, `user_id`, `sala_id`, `fecha`) VALUES(?, ?, ?, CURDATE())", [data, req.session.userID, sala], function(err, result){
+              db.query("INSERT INTO mensajes(`mensaje`, `user_id`, `sala_id`, `fecha`) VALUES(?, ?, ?, CURDATE())", [data, user, sala], function(err, result){
                 if(!!err)
                 throw err;//NOS NOTIFICA SI OCURRE UN ERROR.
   
@@ -139,10 +166,10 @@ io.on('connection', function (socket) {
   
                 console.log('Mensaje dado de alta correctamente!.');
                     //FUNCION QUE ENVIA EL MENSAJE A TODOS LOS CHATS DE LOS USUARIOS PARA QUE TODOS PUEDAN VER EL MENSAJE NUEVO
-                        socket.broadcast.emit('mensaje', {
-                          usuario: req.session.username,
-                          mensaje: data
-                      });
+                        socket.broadcast.to(req.session.nombre_sala).emit('mensaje',{
+                            usuario: req.session.username,
+                            mensaje: data
+                        });
                       
                       socket.emit('mensaje', {
                           usuario: req.session.username,
@@ -153,6 +180,40 @@ io.on('connection', function (socket) {
       });
       //FUNCION PARA DESTRUIR LA SESION
       socket.on('salir', function(request, response){
-          req.session.destroy();
+        socket.leave(req.session.nombre_sala);
+        req.session.destroy();
+          
       });
+
+      socket.on('cambioDeSala', function(data){
+        const salaId= data.id_sala,
+        nombreSala= data.nombre_sala;
+
+        socket.leave(req.session.nombre_sala);
+
+        req.session.id_sala= salaId;
+        req.session.nombre_sala= nombreSala;
+        socket.join(req.session.nombre_sala);
+        Notificacion('CambioDeSala');
+        console.log(req.session);
+      });
+
+      function Notificacion(evento){
+          const LoginEnSala= 'Bienvenido a la sala <b>'+req.session.nombre_sala+'</b>',
+          CambioDeSala= 'Cambiaste a la sala <b>'+req.session.nombre_sala+'</b>';
+
+          if(evento=="LoginEnSala"){
+              socket.emit('notificacion',{
+                  usuario: nameBot,
+                  mensaje: LoginEnSala
+              })
+          }
+
+          if(evento=="CambioDeSala"){
+            socket.emit('notificacion',{
+                usuario: nameBot,
+                mensaje: CambioDeSala
+                })
+           }
+      }
   });
