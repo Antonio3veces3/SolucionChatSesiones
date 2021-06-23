@@ -7,7 +7,7 @@ session= require('express-session');
 
 //DECLARAMOS APP, VARIABLE DE LA APPLICACION QUE TRABAJARÁ LAS RUTAS Y EL PUERTO DE NUESTRO SERVIDOR.
 var app= express();
-const nameBot= 'BotChat';
+const nameBot= 'BotChat';//BOTCHAT QUE MOSTRARA NOTIFICACIONES DE LOS EVENTOS DENTRO DEL CHAT
 //DECLARAMOS LA VARIABLE server, QUE NOS NOTIFICARÁ CUANDO ARRANQUE NUESTRO SERVIDOR Y NOS DIRÁ EL PUERTO QUE ESTA UTILIZANDO.
 var server= app.listen(3030, ()=>{
     console.log("Servidor trabajando en el puerto 3030");
@@ -63,18 +63,19 @@ app.use(express.static('./'));
 //CREAMOS LA CONEXION DE LA SESION, NOS AVISA CUANDO UN USUARIO ENTRA AL CHAT.
 io.on('connection', function (socket) {
     var req = socket.request; 
+    //CONSUSTA PARA OBTENER LAS SALAS EXISTENTES Y EMITIRLAS CUANDO SE LLAME A 'showRooms'
     db.query("SELECT * FROM salas", function(err,rows,fields){
         const salas= rows; 
         console.log(salas);
         socket.emit('showRooms',salas);
     });
     console.log(req.session);
-        //IF PARA SABER QUIEN INGRESA AL CHAT
+        //IF PARA SABER SI EL USUARIO YA INICIÓ SESIÓN
       if(req.session.userID != null){
           db.query("SELECT * FROM users WHERE id=?", [req.session.userID], function(err, rows, fields){
               console.log('Sesión iniciada con el UserID: ' + req.session.userID + ' Y nombre de usuario: ' + req.session.username);
               socket.emit("logged_in", {user: req.session.username, email: req.session.correo});
-          });//SI EL USUARIO INICIA SESION CORRECTAMENTE NOS NOTIFICA LOS DATOS DE QUIEN SE HA LOGEADO
+          });//SI EL USUARIO YA INICIÓ SESION CORRECTAMENTE NOS NOTIFICA LOS DATOS DE QUIEN SE HA LOGEADO
       }else{
           console.log('No hay sesión iniciada'); //MUESTRA ESTE MENSAJE SI EL USUARIO NO HA INICIADO SESION
       }
@@ -92,7 +93,7 @@ io.on('connection', function (socket) {
                 socket.emit("sinRegistrar");
             }else{
                     console.log(rows);
-                    
+                    //ALMACENAMOS LOS DATOS DEL USUARIO PARA AGREGARLOS A LA SESSION
                     const id= rows[0].id,
                     dataUser = rows[0].username,
                     dataPass = rows[0].password,
@@ -103,21 +104,24 @@ io.on('connection', function (socket) {
                   }
                   if(username == dataUser && password == dataPass){
                       console.log("Usuario correcto!");
+                      //CONSULTA PARA SABER SI LA SALA INGRESADA EXISTE 
                       db.query("SELECT * FROM salas WHERE id_sala=?", [sala], function(err,rows,fields){    
                           if(rows.length==0){
                               console.log("LA SALA NO EXISTE")
                               socket.emit("salaNull");
                           }else{
                             const nombreSala= rows[0].nombre_sala; 
+                            //EMITE LA INFORMACION DEL USUARIO LOGEADO
                             socket.emit("logged_in", {username: dataUser, email: dataEmail, id_sala: sala, nombre_sala: nombreSala}); 
                             req.session.userID = id;
                             req.session.username = dataUser;
                             req.session.correo = dataEmail;
                             req.session.id_sala= sala;
                             req.session.nombre_sala= nombreSala;    
-                            req.session.save(); //GUARDA LA SESION
-                            socket.join(req.session.nombre_sala);
-                            Notificacion('LoginEnSala');
+                            req.session.save(); //GUARDA LA SESION CON LOS DATOS DEL USUARIO
+                            socket.join(req.session.nombre_sala); //INGRESA A LA SALA ELEGIDA
+                            socket.emit('enviarHistorial'); //LLAMA A LA FUNCION PARA MOSTRAR HISTORIAL DE MENSAJES
+                            Notificacion('LoginEnSala'); //NOTIFICACION EMITIDAS POR EL BOTCHAT
                             console.log(req.session);
                           }
                         })
@@ -129,43 +133,46 @@ io.on('connection', function (socket) {
       });
       //FUNCION PARA CREAR UN USUARIO
       socket.on('addUser', function(data){
+          //ALMACENAMOS LOS DATOS QUE INGRESÓ EL USUARIO
           const user = data.user,
           pass = data.pass,
           email = data.email;
           
           if(user != "" && pass != "" && email != ""){
               console.log("Registrando el usuario: " + user);
+              //CONSULTA PARA SABER SI EL USERNAME O EMAIL YA EXISTEN EN OTROS USUARIOS
               db.query("SELECT * FROM users WHERE username=? OR email=?",[user,email], function(err,rows,fields){
                   if(rows.length>0){
                       socket.emit("UserExistente");
                   }else{
+                      //SI NO EXISTE EL USERNAME O EMAIL, AGREGA AL USUARIO A LA DB
                     db.query("INSERT INTO users(`username`, `password`, `email`) VALUES(?, ?, ?)", [user, pass, email], function(err, result){
                         if(!!err)
                         throw err;//NOS DICE SI HAY UN ERROR
                         console.log(result);//IMPRIME RESULTADO DE LA CONSULTA
                         console.log('Usuario ' + user + " se dio de alta correctamente!."); 
-                        socket.emit('UsuarioOK');//NOS AVISA QUE EL USUARIO SE AGREGÓ
+                        socket.emit('UsuarioOK');//NOS AVISA QUE EL USUARIO SE AGREGÓ CORRECTAMENTE
                       });
                   }
               })
           }else{
-              socket.emit('vacio'); //NOS DICE QUE UNO DE LOS CAMPOS ESTA VACIO
+              socket.emit('vacio'); //NOS DICE QUE UNO O MAS CAMPOS ESTAN VACIOS
           }
       });
       
       socket.on('mjsNuevo', function(data){ // FUNCION PARA CREAR CADA MENSAJE NUEVO
           
           var sala= req.session.id_sala; // ID DE LA SALA
-          var user= req.session.userID;
-          //CONSULTA PARA INSERTAR EL MENSAJE NUEVO A LA BD MENSAJES
+          var user= req.session.userID; //ID DEL USUARIO
+          //CONSULTA PARA INSERTAR EL MENSAJE NUEVO A LA BD MENSAJES CON SU SALA A LA QUE CORRESPONDE
               db.query("INSERT INTO mensajes(`mensaje`, `user_id`, `sala_id`, `fecha`) VALUES(?, ?, ?, CURDATE())", [data, user, sala], function(err, result){
                 if(!!err)
                 throw err;//NOS NOTIFICA SI OCURRE UN ERROR.
   
-                console.log(result);//IMPRIME RESULTADOS DE LA CONSULTA
+                console.log(result);
   
                 console.log('Mensaje dado de alta correctamente!.');
-                    //FUNCION QUE ENVIA EL MENSAJE A TODOS LOS CHATS DE LOS USUARIOS PARA QUE TODOS PUEDAN VER EL MENSAJE NUEVO
+                    //FUNCION QUE ENVIA EL MENSAJE UNICAMENTE A LA SALA DONDE CORRESPONDE
                         socket.broadcast.to(req.session.nombre_sala).emit('mensaje',{
                             usuario: req.session.username,
                             mensaje: data
@@ -184,20 +191,29 @@ io.on('connection', function (socket) {
         req.session.destroy();
           
       });
-
+      //FUNCION PARA CAMBIAR DE SALA
       socket.on('cambioDeSala', function(data){
         const salaId= data.id_sala,
         nombreSala= data.nombre_sala;
 
-        socket.leave(req.session.nombre_sala);
-
+        socket.leave(req.session.nombre_sala); //CIERRA LA SESION DE LA SALA ACTUAL
+        //GUARDAMOS LOS DATOS DE LA NUEVA SALA EN SESSION
         req.session.id_sala= salaId;
         req.session.nombre_sala= nombreSala;
-        socket.join(req.session.nombre_sala);
-        Notificacion('CambioDeSala');
-        console.log(req.session);
+        socket.join(req.session.nombre_sala); //INGRESAMOS A LA NUEVA SALA
+        Notificacion('CambioDeSala'); //NOTIFICA EL BOTCHAT QUE SE HA CAMBIADO DE SALA
+        console.log(req.session, 'Ha cambiado a la sala: '+req.session.nombre_sala);
       });
-
+      //FUNCION PARA MOSTRAR EL HISTORIAL DE MENSAJES DE CADA SALA
+      socket.on('historial',function(){
+        console.log('Creando historial');
+        //CONSULTA PARA EXTRAER LOS MENSAJES DE LA SALA
+        db.query('SELECT nombre_sala as sala, username, mensaje FROM mensajes INNER JOIN salas ON id_sala=sala_id INNER JOIN users on id=user_id WHERE sala_id='+req.session.id_sala+' order by id_mensaje ASC', function(err,rows,fields){
+            socket.emit('enviarHistorial', rows);
+        });
+      })
+            
+//FUNCION DE NOTIFICACIONES QUE ANUNCIA EL BOTCHAT
       function Notificacion(evento){
           const LoginEnSala= 'Bienvenido a la sala <b>'+req.session.nombre_sala+'</b>',
           CambioDeSala= 'Cambiaste a la sala <b>'+req.session.nombre_sala+'</b>';

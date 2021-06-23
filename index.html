@@ -22,7 +22,11 @@
 	    html,
 body {
   height: 100%;
+  background-image:url(/bckgnd.jpg);
+  background-size:auto;
 }
+
+
 
 body {
   display: flex;
@@ -41,7 +45,7 @@ body {
 
 body {
     font:12px arial;
-    color: #222;
+    color: rgb(26, 24, 23);
     text-align:center;
     padding:35px; }
   
@@ -52,7 +56,7 @@ form, p, span {
 input { font:12px arial; }
   
 a {
-    color:#0000FF;
+    color:#ff0000;
     text-decoration:none; }
   
     a:hover { text-decoration:underline; }
@@ -60,9 +64,9 @@ a {
 #wrapper, #loginform {
     margin:0 auto;
     padding-bottom:25px;
-    background:#EBF4FB;
-    width:504px;
-    border:1px solid #ACD8F0; }
+    background:#ffffff;
+    width:800px;
+    border:1px solid #004d00; }
   
 #loginform { padding-top:18px; }
   
@@ -70,18 +74,28 @@ a {
   
 #chatbox {
     text-align:left;
+    margin-top: 20px;
     margin:0 auto;
     margin-bottom:25px;
     padding:10px;
-    background:#fff;
+    background:rgba(205, 218, 218, 0.541);
     height:270px;
-    width:430px;
-    border:1px solid #ACD8F0;
-    overflow:auto; }
+    width:700px;
+    border:0.5px solid #797979c5;
+    overflow:auto;
+    border-radius: 3px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 16px;
+    padding-left: 60px;
+    padding-top: 15px;
+     }
   
 #usermsg {
     width:395px;
-    border:1px solid #ACD8F0; }
+    border:1px solid #ACD8F0;
+    border-radius: 2px;
+    overflow: auto;
+     }
   
 #submit { width: 60px; }
   
@@ -128,7 +142,47 @@ a {
           font-size: 3.5rem;
         }
       }
-      
+      #enviarMensaje{
+        width: 412px;
+        height: 30px;
+        font-size:15px;
+        background-color: #045c6bf6;
+        color: #f5f5f5;
+        border: 0.5px solid rgb(190, 190, 190);
+        margin: 3px;
+      }
+      #mensaje{
+        height: 30px;
+      }
+      #cambioSala{
+        position: relative;
+        margin-top: 4px;
+        margin-left: 195px;
+        width: 412px;
+        text-align-last: center;
+        background-color: #95bb77;
+      }
+      .question{
+        margin-top: 6px;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-size: larger;
+      }
+      p{
+        font-size: 16px;
+      }
+      h1{
+        color: blanchedalmond;
+        margin: 10px;
+        background-color: rgba(8, 8, 8, 0.521);
+      }
+      #year{
+        color: rgb(255, 255, 255);
+        margin-top: 40px;
+        font-size: 16px;
+      }
+      #nombresala{
+        color: #081d4b;
+      }
     </style>
 
     
@@ -136,10 +190,9 @@ a {
     <link href="signin.css" rel="stylesheet">
   </head>
   <body class="text-center">
-    
+<!--FORMULARIO PARA INICIAR SESION-->
 <main class="form-signin">
-    <h1 class="h3 mb-3 fw-normal">Iniciar sesión</h1>
-    <!--FORMULARIO PARA INICIAR SESION-->
+    <h1 class="h1 mb-3 fw-normal">Iniciar sesión</h1>
     <div class="form-floating">
       <input type="text" class="form-control" id="userName" placeholder="name@example.com" name="username">
       <label for="floatingInput">Nombre de usuario</label>
@@ -155,24 +208,24 @@ a {
 
     <button class="w-100 btn btn-lg btn-primary" type="button" id="Login">Entrar</button>
     <button class="w-100 btn btn-lg btn-warning" type="button" id="registrar" data-toggle="modal" data-target="#registro">Registrar</button>
-    <p class="mt-5 mb-3 text-muted">&copy; 2021</p>
+    <p  id="year">&copy; 2021</p>
 </main>
     <!--VISTA DEL CHAT-->
 		<div id="wrapper" style="display: none;">
 			<div id="menu">
-        <h3><b id="nombresala"></b></h3>
+        <h2><b id="nombresala"></b></h2>
 				<p class="bienvenido"> Hola <b id="usernameTag"></b>, con correo: <b id="emailUser"></b> </p>
-				<p class="logout"><a id="exit" href="/">Salir del chat</a></p>
+				<p class="logout"><a id="exit" href="/">Salir del chat (X)</a></p>
 			</div>
 			
-			<div id="chatbox">
+			<div id="chatbox" style="overflow: scroll;" >
 <!-- 				Caja del chat que contendrá todos los mensajes. -->
 			</div>
 			
-				<input name="usermsg" type="text" id="mensaje" size="63"/>
+				<input name="usermsg" type="text" id="mensaje" size="63" placeholder="type" style="text-align: center;"/>
 				<input type="button" name="submitmsg" id="enviarMensaje" value="Enviar Mensaje"/>
-        <select class="form-control" name="cambioSala" id="cambioSala">
-          <!--<option selected>Cambiar sala</option> --> 
+        <p class="question">¿Quieres cambiar de sala?</p>
+        <select class="form-select" name="cambioSala" id="cambioSala">
         </select>
 		  </div>
 	
@@ -220,7 +273,7 @@ a {
 	  $(document).ready(function(){ //EJECUTA EL SCRIPT UNA VEZ QUE HAYA CARGADO CORRECTAMENTE EL DOCUMENTO
 		  
 		  var socket = io(); //CREAMOS LA CONEXION CON SOCKET.IO
-		  
+      //MOSTRAMOS LA SALAS EXISTENTES EN EL SELECT PARA INICIAR SESION Y PARA CAMBIAR DE SALA DENTRO DEL CHAT    
       socket.on("showRooms",function(salas){
         var getSalas= new Array();
         $.each(salas, function(id,val){
@@ -228,19 +281,16 @@ a {
           getSalas.push(info);
         });
         
-        let infoSalas= '';
+        let infoSalas= '<option hidden selected>Elegir</option>';
         getSalas.forEach(sala=>{
           infoSalas+= `<option value=${sala.id}>${sala.nombre_sala}</option>`; 
         });
-        document.getElementById("salas").innerHTML= infoSalas;
-        document.getElementById("cambioSala").innerHTML=infoSalas;
+        document.getElementById("salas").innerHTML= infoSalas; //AGREGAR SALAS AL SELECT DEL LOGIN
+        document.getElementById("cambioSala").innerHTML=infoSalas; //AGREGAR SALAS AL SELECT DENTRO DEL CHAT
         console.log(getSalas);
       });
 
-      
-
-
-          //CUANDO SE HAGA CLICK SOBRE EL BUTTON #LOGIN - ENTRAR- ENVIA USER Y PASSWORD A LA FUNCION "login" DE SOCKET
+      //CUANDO SE HAGA CLICK SOBRE EL BUTTON #LOGIN - ENTRAR- ENVIA USER Y PASSWORD A LA FUNCION "login" DE SOCKET
 		  $("#Login").click(function(){
 			  socket.emit("login", {
 				  username: $("#userName").val(),
@@ -282,7 +332,7 @@ a {
 				}
 			});
 
-            //CUANDO SE LOGEA UN USUARIO, LE MUESTRA LA VISTA DEL CHAT Y AGREGA SU USUARIO Y EMAIL AL TEXTO DE BIENVENIDA.
+            //CUANDO SE LOGEA UN USUARIO, LE MUESTRA LA VISTA DEL CHAT Y AGREGA SU USUARIO E EMAIL AL TEXTO DE BIENVENIDA.
 			socket.on("logged_in", function(data){
 				console.log(data);
 				$(".form-signin").hide();
@@ -290,11 +340,27 @@ a {
 				$('#usernameTag').text(data.username);
 				$('#emailUser').text(data.email);
         $("#nombresala").text(data.nombre_sala);
+        socket.emit('historial');
 			});
             //FUNCION QUE NOTIFICA UN USUARIO INVALIDO
 			socket.on("invalido", function(){
 				alert("Usuario y/o contraseña incorrectos.");
 			});
+
+            //FUNCION PARA MOSTRAL HISTORIAL DE MENSAJES
+      socket.on("enviarHistorial",function(data){
+        var historial="";
+        $.each(data, function(id,val){//CONCATENAMOS LOS MENSAJES
+          historial+= '<p><b>'+data[id].username+' dijo: </b>'+ data[id].mensaje+'</p>';
+        })
+        if(data!= null)
+        historial+= '<small class="bot"><b>Botchat</b> Ultimos mensajes de la sala</small> <br>';//MENSAJE DEL BOTCHAT
+
+        $('#chatbox').append(historial);//MOSTRAMOS EL HISTORIAL EN LA CAJA DEL CHAT
+        console.log('mensajes');
+        console.log("mensajes"+ data);
+      });
+
             //FUNCION QUE NOTIFICA UN ERROR 
 			socket.on("error", function(){
 				alert("Error: Intenta de nuevo!");
@@ -315,44 +381,44 @@ a {
 					$('#chatbox').append(nuevoMensaje + '</br>');
 					$('#mensaje').val("");
 				});
-
+        //FUNCION QUE NOTIFICA QUE ES NECESARIO REGISTRARSE
       socket.on('sinRegistrar',function(){
         alert("Favor de registrarse");
       });
-
+      //FUNCION QUE NOTIFICA QUE LA SALA ELEGIDA NO EXISTE
       socket.on('salaNull',function(){
         alert("La sala NO existe");
       });
-
+      //NOTIFICA QUE EL USERNAME/EMAIL YA EXISTEN
       socket.on('UserExistente',function(){
         alert("El usuario/email ya existe");
       });
-
+      //NOTIFICACIONES DEL BOTCHAT
       socket.on('notificacion',function(data){
-        
+        var mensajeBot='';
         if(data.usuario=="BotChat"){
-          var mensajeBot= `<p><b>${data.usuario}</b>: ${data.mensaje}</p>`;
+          mensajeBot= `<p><b>${data.usuario}</b>: ${data.mensaje}</p>`;
         }else{
-          var mensajeBot= `<p class="mensajeEnviado"><b>${data.usuario}</b> dice: ${data.mensaje}</p>`;
+          mensajeBot= `<p class="mensajeEnviado"><b>${data.usuario}</b> dice: ${data.mensaje}</p>`;
         }//.bienvenido
         $('#chatbox').append(mensajeBot+'</br>');
         $('#mensaje').val("");
       })
-
+      //FUNCION PARA CAMBIAR DE SALA CUANDO SE ELIGA UNA OPCIÒN DEL SELECT 
       $('#cambioSala').change(()=>{
        var idSala= $('#cambioSala').val(),
        nombreSala= $('#cambioSala').find('option:selected').text();
 
        $('#nombresala').text(nombreSala);
        $('#chatbox').empty();
-
+      //EMITE AL SOCKET LOS NUEVOS DATOS DE LA SALA A LA QUE SE DESEA CAMBIAR
        socket.emit('cambioDeSala',{
          id_sala: idSala,
          nombre_sala: nombreSala
        });
-       console.log('Cambio select a ID: '+id_sala+' con nombre '+nombreSala);
+       socket.emit('historial');//PARA ACTUALIZAR EL HISTORIAL
       })
-
+      
 	  });
 </script>
     
