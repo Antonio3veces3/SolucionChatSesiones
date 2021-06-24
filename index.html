@@ -223,6 +223,7 @@ a {
 			</div>
 			
 				<input name="usermsg" type="text" id="mensaje" size="63" placeholder="type" style="text-align: center;"/>
+        <br>
 				<input type="button" name="submitmsg" id="enviarMensaje" value="Enviar Mensaje"/>
         <p class="question">¿Quieres cambiar de sala?</p>
         <select class="form-select" name="cambioSala" id="cambioSala">
@@ -256,7 +257,7 @@ a {
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
-        <button type="button" class="btn btn-primary" id="sendResgistro">Registrar</button>
+        <button type="button" class="btn btn-primary" id="sendRegistro">Registrar</button>
       </div>
     </div>
   </div>
@@ -300,7 +301,7 @@ a {
 			  });
 		  });
           //CUANDO SE HAGA CLICK SOBRE EL BUTTON #sendRegistro - REGISTRAR- ENVIA USER, PASSWORD Y EMAIL A LA FUNCION "addUser" DE SOCKET
-		  $("#sendResgistro").click(function(){
+		  $("#sendRegistro").click(function(){
 		  		socket.emit("addUser", {
 				  user: $("#userNameR").val(),
 				  pass: $("#PasswordR").val(),
@@ -315,7 +316,7 @@ a {
 		  });
 		  
           //CUANDO SE HAGA CLICK EN EL BOTON REGISTRAR RESETEA LOS INPUTS DEL FORMULARIO.
-		  $('#registrar').click(function(){
+		  $('#sendRegistro').click(function(){
 			  $("#userNameR").val("");
 			  $("#PasswordR").val("");
 			  $("#correo").val("");
